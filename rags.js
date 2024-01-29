@@ -1,0 +1,61 @@
+import {LlamaModel, LlamaContext, LlamaChatSession, LlamaEmbeddingContext} from "node-llama-cpp";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+import { HNSWLib } from "@langchain/community/vectorstores/hnswlib"
+import { formatDocumentsAsString } from "langchain/util/document"
+import { RunnablePassthrough, RunnableSequence, } from "@langchain/core/runnables"
+import { StringOutputParser } from "@langchain/core/output_parsers"
+import * as fs from "fs"
+import { PDFLoader } from "langchain/document_loaders/fs/pdf"
+import { ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate, } from "@langchain/core/prompts"
+import { UFCDatas } from "./ufcDatas.js";
+
+const mistral7bInstruct = "g:/AI/mistral-7b-instruct-v0.1.Q5_K_M.gguf"
+
+async function fileToSplitDocs(filename){
+  const text = fs.readFileSync(filename, "utf8")
+  const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1500, chunkOverlap: 200, separators : ' ' })
+  const docs = await textSplitter.createDocuments([text])
+  return docs
+}
+
+const model = new LlamaModel({
+    modelPath: mistral7bInstruct,
+    temperature:0.7, 
+    threads:3, 
+    contextSize:512, 
+    // batchSize:2048, 
+    batchSize:512,
+    gpuLayers: 40, 
+    maxTokens : 1024, 
+    f16Kv:true
+})
+
+const embeddingContext = new LlamaEmbeddingContext({
+    model,
+    contextSize: Math.min(4096, model.trainContextSize)
+})
+
+const embedding = await embeddingContext.getEmbeddingFor(UFCDatas);
+
+embeddingContext.dispose()
+
+const context = new LlamaContext({
+    model,
+    contextSize: Math.min(4096, model.trainContextSize),
+})
+
+const sysMessage = "You are a pirate, responses must be very verbose and in pirate dialect, add 'Arr, m'hearty!' to each sentence."
+
+const session = new LlamaChatSession({
+    contextSequence: context.getSequence(), 
+    systemPrompt: sysMessage,
+})
+
+const answer = await session.prompt("what is the real name of batman?")
+
+console.log({answer})
+
+/*const text = "Hello world";
+const embedding = await embeddingContext.getEmbeddingFor(text);
+
+console.log(text, embedding.vector);*/

@@ -9,7 +9,7 @@ const model = new LlamaModel({
     contextSize:512, 
     // batchSize:2048, 
     batchSize:512,
-    // gpuLayers: 16, 
+    gpuLayers: 40, 
     maxTokens : 1024, 
     f16Kv:true
 })
