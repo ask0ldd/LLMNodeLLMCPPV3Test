@@ -18,6 +18,12 @@ async function fileToSplitDocs(filename){
   return docs
 }
 
+async function stringToSplitDocs(string){
+    const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1500, chunkOverlap: 200, separators : ' ' })
+    const docs = await textSplitter.createDocuments([string])
+    return docs
+  }
+
 const model = new LlamaModel({
     modelPath: mistral7bInstruct,
     temperature:0.7, 
@@ -32,10 +38,19 @@ const model = new LlamaModel({
 
 const embeddingContext = new LlamaEmbeddingContext({
     model,
-    contextSize: Math.min(4096, model.trainContextSize)
+    contextSize: Math.min(4096, model.trainContextSize), 
+    threads:3,
 })
 
-const embedding = await embeddingContext.getEmbeddingFor(UFCDatas);
+const docs = await stringToSplitDocs(UFCDatas)
+
+let docsEmbedPairs = []
+
+for(let i = 0; i< docs.length; i++) docsEmbedPairs.push({doc : docs[i], embedding : await embeddingContext.getEmbeddingFor(docs[i])})
+
+/*const embedding = await embeddingContext.getEmbeddingFor(UFCDatas);
+
+console.log(UFCDatas, embedding.vector);*/
 
 embeddingContext.dispose()
 
